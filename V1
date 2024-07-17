@@ -1,0 +1,954 @@
+-- Boot The Lib
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Main Window
+local Window = Rayfield:CreateWindow({
+   Name = "XanthemSploit - Arsenal",
+   LoadingTitle = "XanthemSploit - Arsenal",
+   LoadingSubtitle = "by luhzayforreal",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "XanthemSploit - Arsenal"
+   },
+   Discord = {
+      Enabled = true,
+      Invite = "https://discord.gg/M8GtJhtf8c", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+   },
+   KeySystem = false, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "XanthemSploit Key Service",
+      Subtitle = "Key Service For XanthemSploit",
+      Note = "...",
+      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"Key"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+   }
+})
+
+-- Vis Tab
+local VisTab = Window:CreateTab("Visuals", nil)
+local VisSection = VisTab:CreateSection("Visual Exploits")
+
+-- Fov Circle
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local DrawingCircle
+local CircleVisible = false
+
+-- Function to create and update the circle
+local function createOrUpdateCircle()
+    if not DrawingCircle then
+        DrawingCircle = Drawing.new("Circle")
+        DrawingCircle.Thickness = 2
+        DrawingCircle.Color = Color3.new(1, 1, 1) -- White color
+        DrawingCircle.Transparency = 1
+        DrawingCircle.Filled = false
+    end
+
+    if CircleVisible then
+        local screenSize = Camera.ViewportSize
+        -- Calculate the radius based on FOV, make it bigger
+        local fovRadius = (Camera.FieldOfView / 90) * (screenSize.Y / 2)
+
+        DrawingCircle.Position = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+        DrawingCircle.Radius = fovRadius
+        DrawingCircle.Visible = true
+    else
+        DrawingCircle.Visible = false
+    end
+end
+
+-- Toggle creation
+local Toggle = VisTab:CreateToggle({
+    Name = "FOV Circle",
+    CurrentValue = false,
+    Flag = "ToggleFOVCircle",
+    Callback = function(Value)
+        CircleVisible = Value
+        createOrUpdateCircle()
+    end,
+})
+
+-- Update the circle whenever the FOV changes
+Camera:GetPropertyChangedSignal("FieldOfView"):Connect(function()
+    if CircleVisible then
+        createOrUpdateCircle()
+    end
+end)
+
+-- Ensure the circle is updated every frame for dynamic FOV changes
+game:GetService("RunService").RenderStepped:Connect(function()
+    if CircleVisible then
+        createOrUpdateCircle()
+    end
+end)
+
+-- Line Esp
+-- Define services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = game.Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Tables to keep track of the created visuals
+local lines = {}
+local boxes = {}
+local connections = {}
+
+-- Function to clear the visuals
+local function clearVisuals()
+    for _, line in ipairs(lines) do
+        line:Remove()
+    end
+    for _, box in ipairs(boxes) do
+        box:Remove()
+    end
+    -- Clear the tables
+    lines = {}
+    boxes = {}
+
+    -- Disconnect all connections
+    for _, connection in ipairs(connections) do
+        connection:Disconnect()
+    end
+    connections = {}
+end
+
+-- Function to create the lines and boxes
+local function createVisuals()
+    clearVisuals()
+
+    local function addPlayer(player)
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local character = player.Character
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+
+            -- Create line
+            local line = Drawing.new("Line")
+            line.Thickness = 2
+            table.insert(lines, line)
+
+            -- Create box
+            local box = Drawing.new("Square")
+            box.Thickness = 2
+            box.Filled = false
+            table.insert(boxes, box)
+
+            local connection = RunService.RenderStepped:Connect(function()
+                if rootPart and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                    local rootPosition, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                    if onScreen then
+                        -- Determine if the player is a teammate or enemy
+                        local isTeammate = player.Team == LocalPlayer.Team
+
+                        -- Set colors based on team
+                        local color = isTeammate and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+                        line.Color = color
+                        box.Color = color
+
+                        -- Update line
+                        line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        line.To = Vector2.new(rootPosition.X, rootPosition.Y)
+                        line.Visible = true
+
+                        -- Update box
+                        local head = character:FindFirstChild("Head")
+                        if head then
+                            local headPosition = Camera:WorldToViewportPoint(head.Position)
+                            box.Position = Vector2.new(headPosition.X - 50, headPosition.Y - 50)
+                            box.Size = Vector2.new(100, 100)
+                            box.Visible = true
+                        end
+                    else
+                        line.Visible = false
+                        box.Visible = false
+                    end
+                else
+                    line.Visible = false
+                    box.Visible = false
+                end
+            end)
+
+            table.insert(connections, connection)
+        end
+    end
+
+    -- Add current players
+    for _, player in ipairs(Players:GetPlayers()) do
+        addPlayer(player)
+    end
+
+    -- Connect events to add and remove players
+    local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function()
+            addPlayer(player)
+        end)
+    end)
+
+    local playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
+        clearVisuals()
+        createVisuals()
+    end)
+
+    table.insert(connections, playerAddedConnection)
+    table.insert(connections, playerRemovingConnection)
+end
+
+-- Create toggle button
+local Toggle = VisTab:CreateToggle({
+    Name = "Line ESP",
+    CurrentValue = false,
+    Flag = "Toggle1",
+    Callback = function(Value)
+        if Value then
+            createVisuals()
+        else
+            clearVisuals()
+        end
+    end,
+})
+
+-- Adv Tab
+local AdvTab = Window:CreateTab("Advantages", nil) -- Title, Image
+local AdvSection = AdvTab:CreateSection("Advantages")
+
+-- Aimbot
+-- Define services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = game.Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Variables to keep track of the auto-lock mechanism
+local autoLockEnabled = false
+local lockConnection
+
+-- Function to find the closest enemy
+local function findClosestEnemy()
+    local closestEnemy = nil
+    local shortestDistance = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid").Health > 0 then
+            local distance = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestEnemy = player
+            end
+        end
+    end
+
+    return closestEnemy, shortestDistance
+end
+
+-- Function to enable auto-lock
+local function enableAutoLock()
+    autoLockEnabled = true
+
+    lockConnection = RunService.RenderStepped:Connect(function()
+        if autoLockEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local closestEnemy, distance = findClosestEnemy()
+            if closestEnemy and distance < 100 then -- Assuming 100 is the proximity range you want
+                local enemyRootPart = closestEnemy.Character.HumanoidRootPart
+                local lookAtPosition = enemyRootPart.Position
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, lookAtPosition)
+            end
+        end
+    end)
+end
+
+-- Function to disable auto-lock
+local function disableAutoLock()
+    autoLockEnabled = false
+    if lockConnection then
+        lockConnection:Disconnect()
+        lockConnection = nil
+    end
+end
+
+-- Create auto-lock toggle button
+local AutoLockToggle = AdvTab:CreateToggle({
+    Name = "Aimbot/Autolock",
+    CurrentValue = false,
+    Flag = "AutoLock1",
+    Callback = function(Value)
+        if Value then
+            enableAutoLock()
+        else
+            disableAutoLock()
+        end
+    end,
+})
+
+-- Soft Aim
+-- Define services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = game.Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+-- Variables to keep track of the soft aim mechanism
+local softAimEnabled = false
+local rightMouseDown = false
+local aimConnection
+local aimSmoothness = 0.1 -- Adjust this value for smoother aim (lower value for more smoothness)
+
+-- Function to find the closest enemy
+local function findClosestEnemy()
+    local closestEnemy = nil
+    local shortestDistance = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid").Health > 0 then
+            local distance = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestEnemy = player
+            end
+        end
+    end
+
+    return closestEnemy, shortestDistance
+end
+
+-- Function to enable soft aim
+local function enableSoftAim()
+    softAimEnabled = true
+
+    aimConnection = RunService.RenderStepped:Connect(function()
+        if softAimEnabled and rightMouseDown and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local closestEnemy, distance = findClosestEnemy()
+            if closestEnemy and distance < 100 then -- Assuming 100 is the proximity range you want
+                local enemyRootPart = closestEnemy.Character.HumanoidRootPart
+                local lookAtPosition = enemyRootPart.Position
+
+                -- Interpolate the camera's CFrame smoothly towards the target
+                local currentCFrame = Camera.CFrame
+                local targetCFrame = CFrame.new(currentCFrame.Position, lookAtPosition)
+                Camera.CFrame = currentCFrame:Lerp(targetCFrame, aimSmoothness)
+            end
+        end
+    end)
+end
+
+-- Function to disable soft aim
+local function disableSoftAim()
+    softAimEnabled = false
+    if aimConnection then
+        aimConnection:Disconnect()
+        aimConnection = nil
+    end
+end
+
+-- Handle right mouse button down
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessedEvent then
+        rightMouseDown = true
+    end
+end)
+
+-- Handle right mouse button up
+UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessedEvent then
+        rightMouseDown = false
+    end
+end)
+
+-- Create soft aim toggle button
+local SoftAimToggle = AdvTab:CreateToggle({
+    Name = "Soft Aim",
+    CurrentValue = false,
+    Flag = "SoftAim1",
+    Callback = function(Value)
+        if Value then
+            enableSoftAim()
+        else
+            disableSoftAim()
+        end
+    end,
+})
+
+-- Define services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+local infiniteJumpEnabled = false
+
+-- Function to enable infinite jump
+local function enableInfiniteJump()
+    infiniteJumpEnabled = true
+
+    UserInputService.JumpRequest:Connect(function()
+        if infiniteJumpEnabled then
+            Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            if Character and Character:FindFirstChildOfClass("Humanoid") then
+                Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end)
+end
+
+-- Function to disable infinite jump
+local function disableInfiniteJump()
+    infiniteJumpEnabled = false
+end
+
+-- Create infinite jump toggle button
+local InfiniteJumpToggle = AdvTab:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfiniteJump1",
+    Callback = function(Value)
+        if Value then
+            enableInfiniteJump()
+        else
+            disableInfiniteJump()
+        end
+    end,
+})
+
+--
+-- Boot The Lib
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Main Window
+local Window = Rayfield:CreateWindow({
+   Name = "XanthemSploit V3",
+   LoadingTitle = "XanthemSploit V3",
+   LoadingSubtitle = "by luhzayforreal",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "XanthemSploit V3"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+   },
+   KeySystem = false, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "XanthemSploit Key Service",
+      Subtitle = "Key Service For XanthemSploit V3",
+      Note = "...",
+      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"Test"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+   }
+})
+
+-- Vis Tab
+local VisTab = Window:CreateTab("Visuals", nil)
+local VisSection = VisTab:CreateSection("Visual Exploits")
+
+local Paragraph = VisTab:CreateParagraph({Title = "Fov Circle", Content = "Fov Circle Is A White Circle That Fills The Screen To Help With Aiming Your Gun, It Fills To The Size Of Your Fov (103 Is The Best Fov To Play On In My Opinion You Can Change Fov In The Arsenal Game Settings (Fov Slider Coming Soon...?))."})
+
+-- Fov Circle
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local DrawingCircle
+local CircleVisible = false
+
+-- Function to create and update the circle
+local function createOrUpdateCircle()
+    if not DrawingCircle then
+        DrawingCircle = Drawing.new("Circle")
+        DrawingCircle.Thickness = 2
+        DrawingCircle.Color = Color3.new(1, 1, 1) -- White color
+        DrawingCircle.Transparency = 1
+        DrawingCircle.Filled = false
+    end
+
+    if CircleVisible then
+        local screenSize = Camera.ViewportSize
+        -- Calculate the radius based on FOV, make it bigger
+        local fovRadius = (Camera.FieldOfView / 90) * (screenSize.Y / 2)
+
+        DrawingCircle.Position = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+        DrawingCircle.Radius = fovRadius
+        DrawingCircle.Visible = true
+    else
+        DrawingCircle.Visible = false
+    end
+end
+
+-- Toggle creation
+local Toggle = VisTab:CreateToggle({
+    Name = "Fov Circle",
+    CurrentValue = false,
+    Flag = "ToggleFOVCircle",
+    Callback = function(Value)
+        CircleVisible = Value
+        createOrUpdateCircle()
+    end,
+})
+
+-- Update the circle whenever the FOV changes
+Camera:GetPropertyChangedSignal("FieldOfView"):Connect(function()
+    if CircleVisible then
+        createOrUpdateCircle()
+    end
+end)
+
+-- Ensure the circle is updated every frame for dynamic FOV changes
+game:GetService("RunService").RenderStepped:Connect(function()
+    if CircleVisible then
+        createOrUpdateCircle()
+    end
+end)
+
+local Paragraph = VisTab:CreateParagraph({Title = "Line Esp", Content = "Line Esp Is A Tracer It Places A Line And Box Connecting To All Players On The Map Green Is Teamates And Red Is Enemies."})
+
+-- Line Esp
+-- Define services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = game.Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Tables to keep track of the created visuals
+local lines = {}
+local boxes = {}
+local connections = {}
+
+-- Function to clear the visuals
+local function clearVisuals()
+    for _, line in ipairs(lines) do
+        line:Remove()
+    end
+    for _, box in ipairs(boxes) do
+        box:Remove()
+    end
+    -- Clear the tables
+    lines = {}
+    boxes = {}
+
+    -- Disconnect all connections
+    for _, connection in ipairs(connections) do
+        connection:Disconnect()
+    end
+    connections = {}
+end
+
+-- Function to create the lines and boxes
+local function createVisuals()
+    clearVisuals()
+
+    local function addPlayer(player)
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local character = player.Character
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+
+            -- Create line
+            local line = Drawing.new("Line")
+            line.Thickness = 2
+            table.insert(lines, line)
+
+            -- Create box
+            local box = Drawing.new("Square")
+            box.Thickness = 2
+            box.Filled = false
+            table.insert(boxes, box)
+
+            local connection = RunService.RenderStepped:Connect(function()
+                if rootPart and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                    local rootPosition, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                    if onScreen then
+                        -- Determine if the player is a teammate or enemy
+                        local isTeammate = player.Team == LocalPlayer.Team
+
+                        -- Set colors based on team
+                        local color = isTeammate and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+                        line.Color = color
+                        box.Color = color
+
+                        -- Update line
+                        line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        line.To = Vector2.new(rootPosition.X, rootPosition.Y)
+                        line.Visible = true
+
+                        -- Update box
+                        local head = character:FindFirstChild("Head")
+                        if head then
+                            local headPosition = Camera:WorldToViewportPoint(head.Position)
+                            box.Position = Vector2.new(headPosition.X - 50, headPosition.Y - 50)
+                            box.Size = Vector2.new(100, 100)
+                            box.Visible = true
+                        end
+                    else
+                        line.Visible = false
+                        box.Visible = false
+                    end
+                else
+                    line.Visible = false
+                    box.Visible = false
+                end
+            end)
+
+            table.insert(connections, connection)
+        end
+    end
+
+    -- Add current players
+    for _, player in ipairs(Players:GetPlayers()) do
+        addPlayer(player)
+    end
+
+    -- Connect events to add and remove players
+    local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function()
+            addPlayer(player)
+        end)
+    end)
+
+    local playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
+        clearVisuals()
+        createVisuals()
+    end)
+
+    table.insert(connections, playerAddedConnection)
+    table.insert(connections, playerRemovingConnection)
+end
+
+-- Create toggle button
+local Toggle = VisTab:CreateToggle({
+    Name = "Line Esp",
+    CurrentValue = false,
+    Flag = "Toggle1",
+    Callback = function(Value)
+        if Value then
+            createVisuals()
+        else
+            clearVisuals()
+        end
+    end,
+})
+
+-- Adv Tab
+local AdvTab = Window:CreateTab("Advantages", nil) -- Title, Image
+local AdvSection = AdvTab:CreateSection("Advantages")
+
+local Paragraph = AdvTab:CreateParagraph({Title = "How To Use Aimbot Advantages", Content = "(The Difference) Aimbot/Autolock Has A Longer Range Then Soft Aim And Has A Harsher Snap Vs. Soft Aim You Can Still Move Your Screen By Yourself Even When Activated, Also Soft Aim You Cannot Adjust The Strength Of. (How To Use) With The Aimbot/Autolock And The Soft Aim Once You Turn The Toggle On You Have To Hold Right Mouseclick/The Aim Button For It To Start Locking On"})
+
+-- Aimbot
+-- Define services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = game.Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+-- Variables to keep track of the auto-lock mechanism
+local autoLockEnabled = false
+local lockConnection
+local isRightMouseButtonDown = false
+local aimbotStrength = 10 -- Default strength
+
+-- Function to find the closest enemy
+local function findClosestEnemy()
+    local closestEnemy = nil
+    local shortestDistance = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid").Health > 0 then
+            local distance = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestEnemy = player
+            end
+        end
+    end
+
+    return closestEnemy, shortestDistance
+end
+
+-- Function to enable auto-lock
+local function enableAutoLock()
+    autoLockEnabled = true
+
+    lockConnection = RunService.RenderStepped:Connect(function()
+        if autoLockEnabled and isRightMouseButtonDown and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local closestEnemy, distance = findClosestEnemy()
+            if closestEnemy and distance < 100 then -- Assuming 100 is the proximity range you want
+                local enemyRootPart = closestEnemy.Character.HumanoidRootPart
+                local lookAtPosition = enemyRootPart.Position
+
+                -- Smoothly move the camera towards the target based on aimbot strength
+                local currentCameraPosition = Camera.CFrame.Position
+                local newCameraPosition = currentCameraPosition:Lerp(lookAtPosition, aimbotStrength / 100)
+                Camera.CFrame = CFrame.new(newCameraPosition, lookAtPosition)
+            end
+        end
+    end)
+end
+
+-- Function to disable auto-lock
+local function disableAutoLock()
+    autoLockEnabled = false
+    if lockConnection then
+        lockConnection:Disconnect()
+        lockConnection = nil
+    end
+end
+
+-- Mouse input tracking
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        isRightMouseButtonDown = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        isRightMouseButtonDown = false
+    end
+end)
+
+-- Create auto-lock toggle button
+local AutoLockToggle = AdvTab:CreateToggle({
+    Name = "Aimbot/Autolock",
+    CurrentValue = false,
+    Flag = "AutoLock1",
+    Callback = function(Value)
+        if Value then
+            enableAutoLock()
+        else
+            disableAutoLock()
+        end
+    end,
+})
+
+-- Create slider for aimbot strength
+local AimbotStrengthSlider = AdvTab:CreateSlider({
+    Name = "Aimbot Strength",
+    Range = {0, 10},
+    Increment = 1,
+    Suffix = "%",
+    CurrentValue = aimbotStrength,
+    Flag = "AimbotStrength",
+    Callback = function(Value)
+        aimbotStrength = Value
+    end,
+})
+
+
+-- Soft Aim
+-- Define services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = game.Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+-- Variables to keep track of the soft aim mechanism
+local softAimEnabled = false
+local rightMouseDown = false
+local aimConnection
+local aimSmoothness = 0.1 -- Adjust this value for smoother aim (lower value for more smoothness)
+
+-- Function to find the closest enemy
+local function findClosestEnemy()
+    local closestEnemy = nil
+    local shortestDistance = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid").Health > 0 then
+            local distance = (player.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestEnemy = player
+            end
+        end
+    end
+
+    return closestEnemy, shortestDistance
+end
+
+-- Function to enable soft aim
+local function enableSoftAim()
+    softAimEnabled = true
+
+    aimConnection = RunService.RenderStepped:Connect(function()
+        if softAimEnabled and rightMouseDown and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local closestEnemy, distance = findClosestEnemy()
+            if closestEnemy and distance < 100 then -- Assuming 100 is the proximity range you want
+                local enemyRootPart = closestEnemy.Character.HumanoidRootPart
+                local lookAtPosition = enemyRootPart.Position
+
+                -- Interpolate the camera's CFrame smoothly towards the target
+                local currentCFrame = Camera.CFrame
+                local targetCFrame = CFrame.new(currentCFrame.Position, lookAtPosition)
+                Camera.CFrame = currentCFrame:Lerp(targetCFrame, aimSmoothness)
+            end
+        end
+    end)
+end
+
+-- Function to disable soft aim
+local function disableSoftAim()
+    softAimEnabled = false
+    if aimConnection then
+        aimConnection:Disconnect()
+        aimConnection = nil
+    end
+end
+
+-- Handle right mouse button down
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessedEvent then
+        rightMouseDown = true
+    end
+end)
+
+-- Handle right mouse button up
+UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and not gameProcessedEvent then
+        rightMouseDown = false
+    end
+end)
+
+-- Create soft aim toggle button
+local SoftAimToggle = AdvTab:CreateToggle({
+    Name = "Soft Aim",
+    CurrentValue = false,
+    Flag = "SoftAim1",
+    Callback = function(Value)
+        if Value then
+            enableSoftAim()
+        else
+            disableSoftAim()
+        end
+    end,
+})
+
+local Paragraph = AdvTab:CreateParagraph({Title = "Infinite Jump, And Fly", Content = "(The Difference) Infinite Jump Allows You To Go In The Air By Spamming Spacebar And Jumping Over And Over Hints The Name Infinite Jump, And Fly You Just Hold Down Spacebar And You Will Levitate In The Air Like A God."})
+
+--infjump
+-- Define services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+local infiniteJumpEnabled = false
+
+-- Function to enable infinite jump
+local function enableInfiniteJump()
+    infiniteJumpEnabled = true
+
+    UserInputService.JumpRequest:Connect(function()
+        if infiniteJumpEnabled then
+            Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            if Character and Character:FindFirstChildOfClass("Humanoid") then
+                Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end)
+end
+
+-- Function to disable infinite jump
+local function disableInfiniteJump()
+    infiniteJumpEnabled = false
+end
+
+-- Create infinite jump toggle button
+local InfiniteJumpToggle = AdvTab:CreateToggle({
+    Name = "Infinite Jump",
+    CurrentValue = false,
+    Flag = "InfiniteJump1",
+    Callback = function(Value)
+        if Value then
+            enableInfiniteJump()
+        else
+            disableInfiniteJump()
+        end
+    end,
+})
+
+-- fly
+-- Define services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Variables
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local isFlyEnabled = false
+local flySpeed = 50
+local bodyVelocity = nil
+local isSpacebarDown = false
+
+-- Function to enable flying
+local function enableFly()
+    isFlyEnabled = true
+    
+    if not bodyVelocity then
+        -- Create a new BodyVelocity instance
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.MaxForce = Vector3.new(0, flySpeed * 1000, 0)
+        bodyVelocity.Parent = humanoidRootPart
+
+        -- Update BodyVelocity on RenderStepped
+        RunService.RenderStepped:Connect(function()
+            if isFlyEnabled then
+                if isSpacebarDown then
+                    bodyVelocity.Velocity = Vector3.new(0, flySpeed, 0)
+                else
+                    bodyVelocity.Velocity = Vector3.new(0, -flySpeed, 0)
+                end
+            end
+        end)
+    end
+end
+
+-- Function to disable flying
+local function disableFly()
+    isFlyEnabled = false
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+end
+
+-- Create the fly toggle button
+local FlyToggle = AdvTab:CreateToggle({
+    Name = "Fly",
+    CurrentValue = false,
+    Flag = "Fly1",
+    Callback = function(value)
+        if value then
+            enableFly()
+        else
+            disableFly()
+        end
+    end,
+})
+
+-- Track spacebar input
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Space then
+        isSpacebarDown = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Space then
+        isSpacebarDown = false
+    end
+end)
