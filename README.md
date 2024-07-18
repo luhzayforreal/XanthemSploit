@@ -9,3 +9,5 @@ Xanthem Sploit Is A Exploit Made By Luhzayforreal. Designed To Enhance Gameplay 
 
 Current Version:
 Beta 1.0
+
+![image-removebg-preview (4)](https://github.com/user-attachments/assets/890728d2-4e92-4263-aeca-64f47dc4a505)
